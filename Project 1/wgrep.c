@@ -7,14 +7,17 @@ int main(int argc, char const *argv[]) {
     //printf("found %d arguments\n", argc);
     if (argc == 1) {
         printf("wgrep: searchterm [file ...]\n");
-        return 0;
+        return 1;
     }
     //printf("need to search %s\n", argv[1]);
+    /**
+     * @brief When not passing in a file, wgrep should read from standard input
+     * 
+     */
     if (argc == 2) {
         printf("Enter here: \n");      
-        size_t leng = 0;
         char *str = NULL;
-        while (getline(&str, &leng, stdin) != -1) {
+        while (fgets(str, 256, stdin) != NULL) {
             c = strstr(str, argv[1]);
             if (c) printf("%s", str);   
         }
