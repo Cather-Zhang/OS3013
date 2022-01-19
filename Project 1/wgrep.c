@@ -21,8 +21,6 @@ int main(int argc, char const *argv[]) {
             c = strstr(str, argv[1]);
             if (c) printf("%s", str);   
         }
-
-        printf("\n");
         return 0;
     }
     for (size_t i = 2; i < argc; i++) {
@@ -38,7 +36,6 @@ int main(int argc, char const *argv[]) {
                 if (c) printf("%s", line);  
             }
             free(line);
-            printf("\n");
             fclose(file);
         }
         else {
