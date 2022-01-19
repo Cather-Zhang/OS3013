@@ -194,8 +194,9 @@ if (( $skippre == 0 )); then
     fi
 fi
 
-# run just one test
+# run just one test. Zero is a required test because it does the compilation step.
 if [[ $specific != "" ]]; then
+    run_and_check $testdir 0 $contrunning $verbose 1
     run_and_check $testdir $specific $contrunning $verbose 1
     exit 0
 fi
