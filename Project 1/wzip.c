@@ -5,7 +5,7 @@ int main(int argc, char const *argv[]) {
 
     int c;
     if (argc == 1) {
-        printf("wzip: File1 [File2 ...]\n");
+        printf("wzip: file1 [file2 ...]\n");
         return 1;
     }
     else {
@@ -34,7 +34,6 @@ int main(int argc, char const *argv[]) {
         
         out = fopen("result.txt","wb");
         if (in) {
-
             c1 = getc(in);
             while (c1 != EOF) {
                 if (c1 == (c2 = getc(in))) {
