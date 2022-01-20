@@ -15,7 +15,7 @@ int main(int argc, char const *argv[]) {
             FILE *write;
             FILE *each;
             write = fopen("combined.txt", "w");
-            for (size_t i = 2; i < argc; i++) {
+            for (size_t i = 1; i < argc; i++) {
                 each = fopen(argv[i], "r");
                 while ((c = getc(each)) != EOF) {
                     fputc(c, write);
