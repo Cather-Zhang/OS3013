@@ -12,23 +12,26 @@ int main(int argc, char const *argv[]) {
         FILE *in;
         if (argc > 2) {
             int c;
+            FILE *write;
             FILE *each;
-            in = fopen(argv[1], "w");
+            write = fopen("combined.txt", "w");
             for (size_t i = 2; i < argc; i++) {
                 each = fopen(argv[i], "r");
                 while ((c = getc(each)) != EOF) {
-                    fputc(c, in);
+                    fputc(c, write);
                 }
             }
-            fclose(in);
+            fclose(write);
+            in = fopen("combined.txt", "r");
         }
-    
+        else in = fopen(argv[1], "r");
+        
         int c1, c2;
         int count = 1;
 
         FILE *out;
         FILE *read;
-        in = fopen(argv[1], "r");
+        
         out = fopen("result.txt","wb");
         if (in) {
 
