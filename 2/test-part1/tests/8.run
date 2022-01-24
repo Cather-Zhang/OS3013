@@ -1,1 +1,1 @@
-./wshell < tests/8.in
+PATH="/bad" ./wshell < tests/8.in

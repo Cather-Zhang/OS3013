@@ -1,15 +1,9 @@
-test-part3$ ls
-test_part3.sh
-tests
-tests-out
-wshell
 test-part3$ /bin/ls
 test_part3.sh
 tests
 tests-out
 wshell
 test-part3$ history
-ls
 /bin/ls
 history
 test-part3$ echo hey there
@@ -18,7 +12,6 @@ test-part3$ cd /
 /$ pwd
 /
 /$ history
-ls
 /bin/ls
 history
 echo hey there

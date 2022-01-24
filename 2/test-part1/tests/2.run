@@ -1,1 +1,1 @@
-./wshell < tests/2.in
+grep "chdir(" ../wshell.c -l; PATH="/bad" ./wshell < tests/2.in

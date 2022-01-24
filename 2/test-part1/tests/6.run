@@ -1,1 +1,1 @@
-HOME="`pwd`" ./wshell < tests/6.in
+PATH="/bad" HOME="`pwd`" ./wshell < tests/6.in

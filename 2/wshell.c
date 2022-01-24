@@ -6,14 +6,14 @@
 #include <libgen.h>
 
 
-void type_prompt() {
+char* type_prompt() {
     char buffer[100];
     char *path = getcwd(buffer, 100);
     char *dir = basename(path);
     
     printf("%s$ ", dir);
     fflush(stdout);
-    //return path;
+    return path;
 }
 
 void read_command(char cmd[], char *par[]) {
@@ -54,22 +54,39 @@ void print_cmd(char*command, char*para[]){
 int main(int argc, char const *argv[]) {
     char cmd[100], command[100], *para[20];
     char *envp[] = {(char *) "PATH=/bin", 0};
-    //char* curr;
+    char* curr = "";
     while (1) {
-        //curr = 
-        type_prompt();
+        curr = type_prompt();
         read_command(command, para);
-        chdir();
-        //printf("%s\n", curr);
+        if(!isatty(fileno(stdin))){
+            printf("%s\n", command);
+            fflush(stdout);
+        }
+        if(strcmp(command, "exit") == 0) {
+            return 0;
+        }
         if (fork() != 0)
             wait(NULL);
         else {
             strcpy(cmd, "/bin/");
             strcat(cmd, command);
+
+            //special case for cd
+            if(strcmp(command, "cd") == 0){
+                strcpy(curr, para[1]);
+                chdir(curr);
+                para[1] = curr;
+            }
+            //special case for pwd
+            if(strcmp(command, "pwd") == 0){
+                //printf("%s\n", curr);
+                //fflush(stdout);
+                //break;
+            }
+
+            //execute cmd with para
             execve(cmd, para, envp);
         }
-        if (strcmp(command, "exit") == 0)
-            break;
     }
     return 0;
 }
