@@ -1,8 +1,5 @@
 ../wshell.c
-test-part1$ cd
+test-part1$ cd /
 /$ pwd
 /
 /$ exit
-test-part1$ pwd
-/root/host/2/test-part1
-test-part1$ exit
