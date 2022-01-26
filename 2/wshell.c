@@ -13,8 +13,14 @@ int main(int argc, char const *argv[]) {
     char* curr = "";
     char buffer[100];
     char *home = getcwd(buffer, 100);
+<<<<<<< HEAD
     while (1) {
         char command[100], *para[20];
+=======
+    char *envp[] = {(char *) "PATH=/bin", 0};
+    while (1) {
+        char command[100], cmd[100], *para[20];
+>>>>>>> parent of dc9734f (part 3 kinda)
 
         curr = type_prompt();
 
@@ -52,7 +58,35 @@ int main(int argc, char const *argv[]) {
             char *path = getcwd(buffer, 100);
             printf("%s\n", path);
             fflush(stdout);
+<<<<<<< HEAD
         }        
+=======
+        } 
+        else if (strcmp(command, "echo") == 0) {
+            for (size_t i = 1; i < 20; i++) {
+                if (para[i] == NULL) break;
+                if (para[i+1] == NULL) printf("%s", para[i]);
+                else printf("%s ", para[i]);
+            }
+            printf("\n");
+        }
+             
+        else {
+            if (fork() != 0)
+                wait(NULL);
+            else {
+                char* c;
+                c = strstr(command, "/bin/");
+                if (!c)
+                    strcpy(cmd, "/bin/");
+                strcat(cmd, command);
+                if (execve(cmd, para, envp) == -1){
+                    printf("wshell: could not execute command: %s\n", command);
+                    break;
+                }
+            }
+        }  
+>>>>>>> parent of dc9734f (part 3 kinda)
     }
     return 0;
 }

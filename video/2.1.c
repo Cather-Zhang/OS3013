@@ -10,8 +10,13 @@ int main(int argc, char const *argv[]) {
         wait(NULL);
     else {
         
+<<<<<<< HEAD
         execl("/usr/bin/ls", "/usr/bin/ls", NULL);
         execlp("ls", "ls", NULL);
+=======
+        //execl("/usr/bin/ls", "/usr/bin/ls", NULL);
+        //execlp("ls", "ls", NULL);
+>>>>>>> parent of dc9734f (part 3 kinda)
         char* arg[] = {"ls", NULL};
         execvp(arg[0], arg);
     }
