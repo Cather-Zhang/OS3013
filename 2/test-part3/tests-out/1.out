@@ -4,12 +4,18 @@ tests
 tests-out
 wshell
 test-part3$ history
-wshell: could not execute command: history
+/bin/ls
+history
 test-part3$ echo hey there
 hey there
 test-part3$ cd /
 /$ pwd
 /
 /$ history
-wshell: could not execute command: history
+/bin/ls
+history
+echo hey there
+cd /
+pwd
+history
 /$ exit
