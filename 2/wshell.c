@@ -205,9 +205,16 @@ int read_command(char*cmd, char*par[], int index, char *his[], char *queue[]){
             if (strcmp(p, "&&") == 0) isand = 1;
             else isand = 0;
             p = strtok (NULL, " \n");
-            while (p != NULL) {
-                queue[j++] = strdup(p);
-                p = strtok (NULL, " \n");
+            if (strcmp(p, "echo") == 0) {
+                queue[0] = strdup(p);
+                p = strtok (NULL, "\n");
+                queue[1] = strdup(p);
+            }
+            else {
+                while (p != NULL) {
+                    queue[j++] = strdup(p);
+                    p = strtok (NULL, " \n");
+                }
             }
         }
         else par[i++] = strdup(p);
