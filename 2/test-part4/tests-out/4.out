@@ -1,7 +1,3 @@
 test-part4$ cat tests/4a.in | wc -l
-cat tests/4a.in wc -l 
-running pipe
-wshell: could not execute command: cat
-cat tests/4a.in wc -l 
-running pipe
+3
 test-part4$ exit

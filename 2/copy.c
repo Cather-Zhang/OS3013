@@ -5,10 +5,13 @@
 #include <stdlib.h>
 #include <libgen.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 void print_cmd(char*para[]);
 char* type_prompt();
-int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[]);
+int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[], char *pipeIn[]);
+void run_pipe(char*l[20], char*r[20], char**envp);
 
 void print_his(char *his[], int index) ;
 
@@ -18,16 +21,19 @@ int main(int argc, char const *argv[]) {
     char *home = getcwd(buffer, 100);
     char *envp[] = {(char *) "PATH=/bin", 0};
     int rc;
-
-
+    int re = -1;
+    int e = -1;
     int index = 0, isand = -1;
+    char* op = ""; // operator
+    char* output = ""; // file output for >, >>
+    char* input[10]; // input for pipe
     while (1) {
-        char command[20], cmd[20], *para[10], *history[10], *queue[10];
+        char command[20], cmd[20], *para[10], *history[10], *queue[10], *pipein[10];
         for (size_t i = 0; i < 10; i++) {
             para[i] = NULL;
         }
 
-        if (queue[0] != NULL) {
+        if (isand == 0 || isand == 1) {
             //&& operation
             if ((isand == 1) ) {
                 isand = -1;
@@ -85,7 +91,7 @@ int main(int argc, char const *argv[]) {
                 queue[i] = NULL;
             }   
             curr = type_prompt();
-            isand = read_command(command, para, index, history, queue);
+            isand = read_command(command, para, index, history, queue, pipein);
             index++;
         }
         
@@ -118,7 +124,7 @@ int main(int argc, char const *argv[]) {
             printf("%s\n", path);
             rc = 0;
             fflush(stdout);
-        } 
+        } /*
         else if (strcmp(command, "echo") == 0) {
             for (size_t i = 1; i < 10; i++) {
                 if (para[i] == NULL) break;
@@ -128,7 +134,7 @@ int main(int argc, char const *argv[]) {
             printf("\n");
             rc = 0;
             fflush(stdout);
-        }
+        }*/
         else if (strcmp(command, "history") == 0) {
             if (index < 10) {
                 for (size_t i = 0; i < index; i++) {           
@@ -144,31 +150,159 @@ int main(int argc, char const *argv[]) {
             fflush(stdout);
         }
         else {
-            int pid = fork();
-            int status;
-            if (pid != 0)
-                waitpid(pid, &status, 0);
-            else {
-                char* c;
-                c = strstr(command, "/bin/");
-                if (!c)
+            if (isand == 2) {
+                int fd[2];//, status, pid;
+                pipe(fd);
+                pid_t pid = fork();
+                if(pid == 0) {
+                    char* c;
+                    c = strstr(command, "/bin/");
+                    if (!c)
+                        strcpy(cmd, "/bin/");
+                    strcat(cmd, command);
+
+                    //printf("in child 1\n");
+                    dup2(fd[1], 1);
+                    close(fd[0]);
+                    execve(cmd, para, envp);
+                }
+                else {
+                    int status;
+                    waitpid(pid, &status, 0);
+
+                    char *comm = strdup(pipein[0]);
                     strcpy(cmd, "/bin/");
-                strcat(cmd, command);
-                if (execve(cmd, para, envp) == -1){
-                    rc = -1;
-                    printf("wshell: could not execute command: %s\n", command);
+                    strcat(cmd, comm);
+                    //printf("back to parent\n");
+                    dup2(fd[0], 0);
+                    close(fd[1]);
+                    //printf("executing...\n");
+                    fflush(stdout);
+                    execve(cmd, pipein, envp);
                     exit(0);
                 }
             }
 
-            rc = WEXITSTATUS(status);
-            //printf("raw status: %d\n", status);
-            //printf("external exit code: %d\n", WIFEXITED(status));
-            //printf("WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
-        }  
+            else {
+                int pid = fork();
+                int status;
+                if (pid != 0)
+                    waitpid(pid, &status, 0);
+                else {
+                    re = -1;
+                    output = "";
+                    //looking for >, >>, or |
+                    //before > or >> is the content
+                    //after is the file
+                    //int pipe = -1;
+                    for (int i = 1; i < 10; i++) {
+                        if(para[i] == NULL) break;
+                        //printf("%s\n", para[i]);
+                        if (strcmp(para[i],">") == 0 || strcmp(para[i],">>") == 0){
+                            op = strdup(para[i]);
+                            re = i;
+                            output = strdup(para[i+1]);    
+                            input[0] = strdup(para[0]);
+                            input[i+1] = NULL;
+                            break;
+                        }
+                        /*
+                        if(strcmp(para[i],"|") == 0){
+                            pipe = i+1;
+                            op = strdup("|");
+                            para[i] = NULL;
+                            re = 1;
+                            break;
+                        }
+                        */
+                        input[i] = para[i];
+                    }
+
+                    /*
+                    if(pipe != -1){
+                        for(int j = 0; j < 20; j++){
+                            if(para[pipe] == NULL) {
+                                input[j] = NULL;
+                                break;
+                            }
+                            input[j] = strdup(para[pipe++]);
+                        }
+                    }
+                    
+                    for(int i = 0; i < 20; i++){
+                        if(para[i] == NULL) break;
+                        printf("%s ", para[i]);
+                    }
+                    for(int i = 0; i < 20; i++){
+                        if(para[i] == NULL) break;
+                        printf("%s ", input[i]);
+                    }
+                    printf("\n");
+                    */
+                    char* c;
+                    c = strstr(command, "/bin/");
+                    if (!c)
+                        strcpy(cmd, "/bin/");
+                    strcat(cmd, command);
+                    if(re == -1) e = execve(cmd, para, envp);
+
+                    else if (strcmp(op, ">") == 0 || strcmp(op, ">>") == 0){
+                        int args = O_RDWR | O_CREAT;
+                        if(strcmp(op, ">>") == 0) args |= O_APPEND;
+                        int fd = open(output, args, S_IRUSR | S_IWUSR);
+                        dup2(fd, 1);
+                        e = execve(cmd, input, envp);
+                    }
+                    //else if(strcmp(op, "|") == 0 || pipe != -1){
+                    //    printf("running pipe\n");
+                    //    run_pipe(para, input, envp);
+                    //}
+                    printf("e value: %d\n", e);
+                    if (e == -1){
+                        rc = -1;
+                        printf("wshell: could not execute command: %s\n", command);
+                        fclose(stdout);
+                        exit(0);
+                    }
+                
+                
+                    rc = WEXITSTATUS(status);
+                    //printf("raw status: %d\n", status);
+                    //printf("external exit code: %d\n", WIFEXITED(status));
+                    //printf("WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
+                }  
+            }
+        }
     }
     return 0;
 }
+/*
+
+void run_pipe(char*l[20], char*r[20], char**envp){
+    int fd[2], status, pid;
+    pipe(fd);
+    pid_t p = fork();
+    if(p == 0) {
+        //printf("in child 1\n");
+        dup2(fd[1], 1);
+        close(fd[0]);
+        execve(l[0], l, envp);
+    }
+    p = fork();
+    if(p == 0){
+        //printf("in child 2\n");
+        dup2(fd[0], 0);
+        close(fd[1]);
+        execve(r[0], r, envp);
+    }
+
+    close(fd[0]); close(fd[1]);
+
+	while ((pid = wait(&status)) != -1)
+	    exit(0);
+}
+
+*/
 
 char* type_prompt() {
     char buffer[100];
@@ -180,10 +314,10 @@ char* type_prompt() {
     return path;
 }
 
-int read_command(char*cmd, char*par[], int index, char *his[], char *queue[]){
+int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], char* pipeIn[10]){
     char line[1024] = "";
     int count = 0;
-    int i = 0, j = 0, isand;
+    int isand;
 
     int c = fgetc(stdin);
     while(c != '\n'){
@@ -193,17 +327,22 @@ int read_command(char*cmd, char*par[], int index, char *his[], char *queue[]){
     if(count == 1) return -1;
     his[index % 10] = strdup (line);
     if(!isatty(fileno(stdin))){
-        printf("%s\n", line);
+        for (int i = 0; i < count; i++) 
+            printf("%c", line[i]);
+        printf("\n");
         fflush(stdout);
     }
-    
+
+    int i = 0, j = 0, k = 0;
     char* p = strtok(line, " \n");
 
     while (p != NULL)
     {
-        if ((strcmp(p, "&&") == 0) || (strcmp(p, "||") == 0)) {
+        if ((strcmp(p, "&&") == 0) || (strcmp(p, "||") == 0) || (strcmp(p, "|") == 0)) {
             if (strcmp(p, "&&") == 0) isand = 1;
-            else isand = 0;
+            else if (strcmp(p, "||") == 0) isand = 0;
+            else isand = 2;
+
             p = strtok (NULL, " \n");
             if (strcmp(p, "echo") == 0) {
                 queue[0] = strdup(p);
@@ -212,19 +351,23 @@ int read_command(char*cmd, char*par[], int index, char *his[], char *queue[]){
             }
             else {
                 while (p != NULL) {
-                    queue[j++] = strdup(p);
+                    if (isand == 2) pipeIn[k++] = strdup(p);
+                    else queue[j++] = strdup(p);
                     p = strtok (NULL, " \n");
                 }
             }
-        }
+        }      
         else par[i++] = strdup(p);
         p = strtok (NULL, " \n");
     }
+
     strcpy(cmd, par[0]);
-    par[i] = NULL;
+
+    par[i] = NULL;    
+    //print_cmd(par);
+    //print_cmd(pipeIn);
     return isand;
 }
-
 
 
  void print_cmd(char*para[]){
