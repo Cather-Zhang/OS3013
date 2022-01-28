@@ -21,12 +21,14 @@ int main(int argc, char const *argv[]) {
     char *home = getcwd(buffer, 100);
     char *envp[] = {(char *) "PATH=/bin", 0};
     int rc;
-    int re = -1;
-    char* output = "";
-    char* input[10];
+    //int re = -1;
     int e = -1;
-    char* op = "";
     int index = 0, isand = -1;
+    int pipe = -1; // index of pipe
+    char* op = ""; // operator
+    char* output = ""; // file output for >, >>
+    char* input[10]; // input for pipe
+    int status;
     while (1) {
         char command[20], cmd[20], *para[10], *history[10], *queue[10];
         for (size_t i = 0; i < 10; i++) {
@@ -150,12 +152,77 @@ int main(int argc, char const *argv[]) {
             fflush(stdout);
         }
         else {
-            
+            //put /bin/ at end of command
+            char* c;
+            c = strstr(command, "/bin/");
+            if (!c)
+                strcpy(cmd, "/bin/");
+            strcat(cmd, command);
+
+            for (int i = 1; i < 10; i++) {
+                if(para[i] == NULL) break;
+                if (strcmp(para[i],">") == 0 || strcmp(para[i],">>") == 0){
+                    op = strdup(para[i]);
+                    output = strdup(para[i+1]);    
+                    input[0] = strdup(para[0]);
+                    input[i+1] = NULL;
+                    break;
+                }
+               
+                if(strcmp(para[i],"|") == 0){
+                    pipe = i+1;
+                    op = strdup("|");
+                    para[i] = NULL;
+                    break;
+                }
+                input[i] = para[i];
+            }
+            if(pipe != -1){
+                for(int j = 0; j < 20; j++){
+                    if(para[pipe] == NULL) {
+                        input[j] = NULL;
+                        break;
+                    }
+                    input[j] = strdup(para[pipe++]);
+                }
+            }
+            if(strcmp(op, "") == 0){ 
+                //no operator, do normally
+                int pid = fork();
+                if (pid != 0){
+                    waitpid(pid, &status, 0);
+                    e = 1;
+                }
+                else {
+                    e = execve(cmd, para, envp);
+                    return 0;
+                }
+            }
+            else if (strcmp(op, ">") == 0 || strcmp(op, ">>") == 0){
+                //file redir operator, if >> add append flag
+                int args = O_RDWR | O_CREAT;
+                if(strcmp(op, ">>") == 0) args |= O_APPEND;
+                int copy = dup(1);
+                int fd = open(output, args, S_IRUSR | S_IWUSR);
+                dup2(fd, 1);
+                if(fork() == 0)
+                    e = execve(cmd, input, envp);
+                close(fd);dup2(copy, 1);
+            }
+            else if(strcmp(op, "|") == 0){
+                //pipe, go to pipe function
+                //fork and use one command
+                printf("running pipe\n");
+                run_pipe(para, input, envp);
+            }
+            if (e == -1){
+                rc = -1;
+                printf("wshell: could not execute command: %s\n", command);
+                fclose(stdout);
+            }
 
 
-
-
-
+            /*
             int pid = fork();
             int status;
             if (pid != 0)
@@ -231,7 +298,7 @@ int main(int argc, char const *argv[]) {
                     exit(0);
                 }
             }
-
+            */
             rc = WEXITSTATUS(status);
             //printf("raw status: %d\n", status);
             //printf("external exit code: %d\n", WIFEXITED(status));

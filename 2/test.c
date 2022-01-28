@@ -9,6 +9,11 @@
 #include <fcntl.h>
 
 int main(int argc, char const *argv[]) {
+    while(1){
+        
+    }
+}
+/*
     int fd[2], status, pid;
     pipe(fd);
     pid_t p = fork();
@@ -30,4 +35,4 @@ int main(int argc, char const *argv[]) {
 
 	while ((pid = wait(&status)) != -1)
 	    return 0;
-}
+*/
