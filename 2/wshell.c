@@ -10,10 +10,11 @@
 
 void print_cmd(char*para[]);
 char* type_prompt();
-int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[], char *pipeIn[]);
+int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[], char *pipeIn[], char *jobs[], int jobcount);
 void run_pipe(char*l[20], char*r[20], char**envp);
 
 void print_his(char *his[], int index) ;
+void print_jobs(int pid[], char* cmd[], int count);
 
 int main(int argc, char const *argv[]) {
     char* curr = "";
@@ -21,20 +22,22 @@ int main(int argc, char const *argv[]) {
     char *home = getcwd(buffer, 100);
     char *envp[] = {(char *) "PATH=/bin", 0};
     int rc;
-    int re = -1;
     int e = -1;
-    int index = 0, isand = -1;
+    int index = 0, isand = -1, jobnum = 0;
     char* op = ""; // operator
     char* output = ""; // file output for >, >>
     char* input[10]; // input for pipe
     while (1) {
-        char command[20], cmd[20], *para[10], *history[10], *queue[10], *pipein[10];
+        char command[20], cmd[20], *para[10], *history[10], *queue[10], *pipein[10], *jobcmd[256];
+        pid_t jobpid[256]; // store process ids
+        
         for (size_t i = 0; i < 10; i++) {
             para[i] = NULL;
             pipein[i] = NULL;
         }
 
         if (isand == 0 || isand == 1) {
+            //printf("rc: %d\n", rc);
             //&& operation
             if ((isand == 1) ) {
                 isand = -1;
@@ -91,8 +94,26 @@ int main(int argc, char const *argv[]) {
             for (int i = 0; i < 10; i++) {
                 queue[i] = NULL;
             }   
+            //loop through the jobpid and print out all finished jobs and set them to -1
+            //and remove them from the job lists (jobpid and jobcmd)
+            //printf("jobnum: %d\n", jobnum);
+            int jstatus;
+            for (int i = 0; i < jobnum; i++) {
+                //printf("[%d] pid %d %s ", i + 1, jobpid[i], jobcmd[i]);
+                if (jobpid[i] != -1) {
+                    jstatus = waitpid(jobpid[i], &jstatus, WNOHANG);
+                    if (jstatus == jobpid[i]) {
+                        jobpid[i] = -1;
+                        printf("[%d] Done: %s \n", i+1, jobcmd[i]);
+                    }
+                }
+                //printf("raw status: %d\n", jstatus);
+                //sif status 
+            }
+
+
             curr = type_prompt();
-            isand = read_command(command, para, index, history, queue, pipein);
+            isand = read_command(command, para, index, history, queue, pipein, jobcmd, jobnum);
             index++;
         }
         
@@ -146,6 +167,22 @@ int main(int argc, char const *argv[]) {
             }
             fflush(stdout);
         }
+        else if (strcmp(command, "jobs") == 0) {
+            print_jobs(jobpid,jobcmd,jobnum);
+        }
+        else if (strcmp(command, "kill") == 0) {
+            int num = atoi(para[1]);
+            if (num > jobnum) 
+                printf("wshell: no such background job: %d\n", num);
+            else 
+            {
+                int killid = jobpid[num-1];
+                jobpid[num-1] = -1;
+                kill(killid, SIGKILL);
+            }
+        }
+
+        //all external
         else {
             if (isand == 2) {
                 int fd[2];//, status, pid;
@@ -159,7 +196,6 @@ int main(int argc, char const *argv[]) {
                         strcpy(cmd, "/bin/");
                     strcat(cmd, command);
 
-                    //printf("in child 1\n");
                     dup2(fd[1], STDOUT_FILENO);
                     close(fd[0]);
                     close(fd[1]);
@@ -181,77 +217,45 @@ int main(int argc, char const *argv[]) {
                 close(fd[1]);
                 waitpid(pid, &status1, 0);
                 waitpid(pid2, &status2, 0);
-                rc = 0;
+                
                 fflush(stdout);
                 continue;
 
             }
 
-            else {
+            else if (isand != 2 && isand != 4 ) {
                 int pid = fork();
                 int status;
                 if (pid != 0)
                     waitpid(pid, &status, 0);
                 else {
-                    re = -1;
                     output = "";
-                    //looking for >, >>, or |
+
+                    //looking for >, >>
                     //before > or >> is the content
                     //after is the file
-                    //int pipe = -1;
+
                     if (isand == 3) {
                     for (int i = 1; i < 10; i++) {
                             if(para[i] == NULL) break;
                             //printf("%s\n", para[i]);
                             if (strcmp(para[i],">") == 0 || strcmp(para[i],">>") == 0){
                                 op = strdup(para[i]);
-                                re = i;
                                 output = strdup(para[i+1]);    
                                 input[0] = strdup(para[0]);
                                 input[i+1] = NULL;
                                 break;
                             }
-                            /*
-                            if(strcmp(para[i],"|") == 0){
-                                pipe = i+1;
-                                op = strdup("|");
-                                para[i] = NULL;
-                                re = 1;
-                                break;
-                            }
-                            */
                             input[i] = para[i];
                         }
                     }
 
-                    /*
-                    if(pipe != -1){
-                        for(int j = 0; j < 20; j++){
-                            if(para[pipe] == NULL) {
-                                input[j] = NULL;
-                                break;
-                            }
-                            input[j] = strdup(para[pipe++]);
-                        }
-                    }
-                    
-                    for(int i = 0; i < 20; i++){
-                        if(para[i] == NULL) break;
-                        printf("%s ", para[i]);
-                    }
-                    for(int i = 0; i < 20; i++){
-                        if(para[i] == NULL) break;
-                        printf("%s ", input[i]);
-                    }
-                    printf("\n");
-                    */
                     char* c;
                     c = strstr(command, "/bin/");
                     if (!c)
                         strcpy(cmd, "/bin/");
                     strcat(cmd, command);
-                    if(re == -1) e = execve(cmd, para, envp);
-
+                    if(strcmp(op, "") == 0) e = execve(cmd, para, envp);
                     else if (strcmp(op, ">") == 0 || strcmp(op, ">>") == 0){
                         int args = O_RDWR | O_CREAT;
                         if(strcmp(op, ">>") == 0) args |= O_APPEND;
@@ -259,27 +263,167 @@ int main(int argc, char const *argv[]) {
                         dup2(fd, 1);
                         e = execve(cmd, input, envp);
                     }
-                    //else if(strcmp(op, "|") == 0 || pipe != -1){
-                    //    printf("running pipe\n");
-                    //    run_pipe(para, input, envp);
-                    //}
+                    
                     
                     if (e == -1){
-                        rc = -1;
                         printf("wshell: could not execute command: %s\n", command);
                         fclose(stdout);
                         exit(0);
-                    }  
+                    } 
+                    //rc = WEXITSTATUS(status); 
                 }  
             rc = WEXITSTATUS(status);    
             //printf("raw status: %d\n", status);
             //printf("external exit code: %d\n", WIFEXITED(status));
             //printf("WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
             }
+
+            else if (isand == 4) {
+                //int jobstatus;
+                isand = -1;
+                pid_t pid = fork();
+                if(pid == 0) {   
+                    char* c;
+                    c = strstr(command, "/bin/");
+                    if (!c)
+                        strcpy(cmd, "/bin/");
+                    strcat(cmd, command);
+
+                    execve(cmd, para, envp);
+                }
+                else {
+                    jobpid[jobnum++] = pid;
+                    printf("[%d]\n", jobnum);
+                    //waitpid(jobpid[i], &jobstatus, WNOHANG);
+                    
+                }
+            }
         }
     }
     return 0;
 }
+
+
+char* type_prompt() {
+    char buffer[100];
+    char *path = getcwd(buffer, 100);
+    char *dir = basename(path);
+    
+    printf("%s$ ", dir);
+    fflush(stdout);
+    return path;
+}
+
+int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], char *pipeIn[], char *jobs[], int jobcount){
+    char line[1024] = "";
+    int count = 0;
+    int isand = -1;
+
+    int c = fgetc(stdin);
+    while(c != '\n'){
+        line[count++] = (char)c;
+        c = fgetc(stdin);
+    }
+    if(count == 1) return -1;
+    his[index % 10] = strdup (line);
+    if(!isatty(fileno(stdin))){
+        for (int i = 0; i < count; i++) 
+            printf("%c", line[i]);
+        printf("\n");
+        fflush(stdout);
+    }
+    char *str, *p;
+    str = strstr(line, ">");
+    if (str) isand = 3;
+    
+    
+    p = strtok(line, " \n");
+    int i = 0, j = 0, k = 0;
+    
+
+    while (p != NULL)
+    {
+        if (strcmp(p, "echo") == 0) {
+            par[i++] = strdup(p);
+            p = strtok (NULL, "\n");
+            if (p != NULL)
+                par[i++] = strdup(p);
+            else break;
+        }
+        
+        else if (strcmp(p, "&") == 0) {
+            isand = 4;
+            p = strtok (NULL, "\n");
+        }
+    
+        else if ((strcmp(p, "&&") == 0) || (strcmp(p, "||") == 0) || (strcmp(p, "|") == 0)) {
+            if (strcmp(p, "&&") == 0) isand = 1;
+            else if (strcmp(p, "||") == 0) isand = 0;
+            else isand = 2;
+
+            p = strtok (NULL, " \n");
+            if (strcmp(p, "echo") == 0) {
+                queue[0] = strdup(p);
+                p = strtok (NULL, "\n");
+                queue[1] = strdup(p);
+            }
+            else {
+                while (p != NULL) {
+                    if (isand == 2) pipeIn[k++] = strdup(p);
+                    else queue[j++] = strdup(p);
+                    p = strtok (NULL, " \n");
+                }
+            }
+        }      
+        else par[i++] = strdup(p);
+        p = strtok (NULL, " \n");
+    }
+
+    strcpy(cmd, par[0]);
+    /*
+    if (strcmp(par[i-1], "&") == 0) {
+        par[i-1] = NULL;
+        isand = 4;
+    }  */
+    par[i] = NULL;
+    if (isand == 4){
+        char*j = "";
+        j = strdup(par[0]);
+        for(int k = 1; k < i; k++){
+            j = strcat(j, " ");
+            j = strcat(j, par[k]);
+        }
+        jobs[jobcount] = strdup(j);
+    } 
+    //print_cmd(par);
+    //print_cmd(pipeIn);
+    //printf("isand: %d\n", isand);
+    return isand;
+}
+
+ void print_cmd(char*para[]){
+    printf("%s", para[0]);
+    if (para[1] == NULL) {
+        printf("\n");
+        return;
+    }
+    for (size_t i = 1; i < 10; i++) {
+        if (para[i] == NULL) break;
+        printf(" %s", para[i]);
+    }
+    printf("\n");
+    fflush(stdout);
+}
+
+void print_jobs(int pid[], char* cmd[], int count) {
+    for (int i = 0; i < count; i++) {
+        if (pid[i] != -1) {
+            printf("%d: %s \n", i+1, cmd[i]);
+        }
+    }
+    fflush(stdout);
+}
+
 /*
 
 void run_pipe(char*l[20], char*r[20], char**envp){
@@ -307,93 +451,3 @@ void run_pipe(char*l[20], char*r[20], char**envp){
 }
 
 */
-
-char* type_prompt() {
-    char buffer[100];
-    char *path = getcwd(buffer, 100);
-    char *dir = basename(path);
-    
-    printf("%s$ ", dir);
-    fflush(stdout);
-    return path;
-}
-
-int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], char* pipeIn[10]){
-    char line[1024] = "";
-    int count = 0;
-    int isand;
-
-    int c = fgetc(stdin);
-    while(c != '\n'){
-        line[count++] = (char)c;
-        c = fgetc(stdin);
-    }
-    if(count == 1) return -1;
-    his[index % 10] = strdup (line);
-    if(!isatty(fileno(stdin))){
-        for (int i = 0; i < count; i++) 
-            printf("%c", line[i]);
-        printf("\n");
-        fflush(stdout);
-    }
-    char* str;
-    str = strstr(line, ">");
-    if (str) isand = 3;
-
-    int i = 0, j = 0, k = 0;
-    char* p = strtok(line, " \n");
-
-    while (p != NULL)
-    {
-        if (strcmp(p, "echo") == 0) {
-            par[i++] = strdup(p);
-            p = strtok (NULL, "\n");
-            if (p != NULL)
-                par[i++] = strdup(p);
-            else break;
-        }
-
-        if ((strcmp(p, "&&") == 0) || (strcmp(p, "||") == 0) || (strcmp(p, "|") == 0)) {
-            if (strcmp(p, "&&") == 0) isand = 1;
-            else if (strcmp(p, "||") == 0) isand = 0;
-            else isand = 2;
-
-            p = strtok (NULL, " \n");
-            if (strcmp(p, "echo") == 0) {
-                queue[0] = strdup(p);
-                p = strtok (NULL, "\n");
-                queue[1] = strdup(p);
-            }
-            else {
-                while (p != NULL) {
-                    if (isand == 2) pipeIn[k++] = strdup(p);
-                    else queue[j++] = strdup(p);
-                    p = strtok (NULL, " \n");
-                }
-            }
-        }      
-        else par[i++] = strdup(p);
-        p = strtok (NULL, " \n");
-    }
-
-    strcpy(cmd, par[0]);
-
-    par[i] = NULL;    
-    //print_cmd(par);
-    //print_cmd(pipeIn);
-    return isand;
-}
-
-
- void print_cmd(char*para[]){
-    printf("%s", para[0]);
-    if (para[1] == NULL) {
-        printf("\n");
-        return;
-    }
-    for (size_t i = 1; i < 10; i++) {
-        if (para[i] == NULL) break;
-        printf(" %s", para[i]);
-    }
-    printf("\n");
-}

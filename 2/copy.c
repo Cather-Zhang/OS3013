@@ -10,10 +10,11 @@
 
 void print_cmd(char*para[]);
 char* type_prompt();
-int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[], char *pipeIn[]);
+int read_command(char cmd[], char *par[], int ind, char *his[], char *queue[], char *pipeIn[], char *jobs[], int jobcount);
 void run_pipe(char*l[20], char*r[20], char**envp);
 
 void print_his(char *his[], int index) ;
+void print_jobs(int pid[], char* cmd[], int count);
 
 int main(int argc, char const *argv[]) {
     char* curr = "";
@@ -23,13 +24,13 @@ int main(int argc, char const *argv[]) {
     int rc;
     int re = -1;
     int e = -1;
-    int index = 0, isand = -1;
+    int index = 0, isand = -1, jobnum = 0;
     char* op = ""; // operator
     char* output = ""; // file output for >, >>
     char* input[10]; // input for pipe
     while (1) {
-        char command[20], cmd[20], *para[10], *history[10], *queue[10], *pipein[10];
-        //int jobs[256]; // store process ids
+        char command[20], cmd[20], *para[10], *history[10], *queue[10], *pipein[10], *jobcmd[256];
+        pid_t jobpid[256]; // store process ids
         for (size_t i = 0; i < 10; i++) {
             para[i] = NULL;
             pipein[i] = NULL;
@@ -92,8 +93,10 @@ int main(int argc, char const *argv[]) {
             for (int i = 0; i < 10; i++) {
                 queue[i] = NULL;
             }   
+            //loop through the jobpid and print out all finished jobs and set them to -1
+            //and remove them from the job lists (jobpid and jobcmd)
             curr = type_prompt();
-            isand = read_command(command, para, index, history, queue, pipein);
+            isand = read_command(command, para, index, history, queue, pipein, jobcmd, jobnum);
             index++;
         }
         
@@ -146,6 +149,9 @@ int main(int argc, char const *argv[]) {
                 }
             }
             fflush(stdout);
+        }
+        else if (strcmp(command, "jobs") == 0) {
+            print_jobs(jobpid,jobcmd,jobnum);
         }
         //all external
         else {
@@ -249,6 +255,21 @@ int main(int argc, char const *argv[]) {
 
             else if (isand == 4) {
                 
+                isand = -1;
+                pid_t pid = fork();
+                if(pid == 0) {   
+                    char* c;
+                    c = strstr(command, "/bin/");
+                    if (!c)
+                        strcpy(cmd, "/bin/");
+                    strcat(cmd, command);
+
+                    execve(cmd, para, envp);
+                }
+                else {
+                    jobpid[jobnum++] = pid;
+                    //printf("child %d pid: %d\n", jobnum,  pid);
+                }
             }
         }
     }
@@ -266,10 +287,10 @@ char* type_prompt() {
     return path;
 }
 
-int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], char *pipeIn[10]){
+int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], char *pipeIn[], char *jobs[], int jobcount){
     char line[1024] = "";
     int count = 0;
-    int isand;
+    int isand = -1;
 
     int c = fgetc(stdin);
     while(c != '\n'){
@@ -330,19 +351,28 @@ int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], ch
         else par[i++] = strdup(p);
         p = strtok (NULL, " \n");
     }
-/*
+
     strcpy(cmd, par[0]);
+    /*
     if (strcmp(par[i-1], "&") == 0) {
         par[i-1] = NULL;
         isand = 4;
     }  */
-    par[i] = NULL;    
+    par[i] = NULL;
+    if (isand == 4){
+        char*j = "";
+        j = strdup(par[0]);
+        for(int k = 1; k < i; k++){
+            j = strcat(j, " ");
+            j = strcat(j, par[k]);
+        }
+        jobs[jobcount] = strdup(j);
+    } 
     //print_cmd(par);
     //print_cmd(pipeIn);
-    printf("isand: %d\n", isand);
+    //printf("isand: %d\n", isand);
     return isand;
 }
-
 
  void print_cmd(char*para[]){
     printf("%s", para[0]);
@@ -357,6 +387,16 @@ int read_command(char*cmd, char*par[], int index, char *his[], char *queue[], ch
     printf("\n");
     fflush(stdout);
 }
+
+void print_jobs(int pid[], char* cmd[], int count) {
+    for (int i = 0; i < count; i++) {
+        if (pid[i] != -1) {
+            printf("%d: %s\n", i, cmd[i]);
+        }
+    }
+    fflush(stdout);
+}
+
 /*
 
 void run_pipe(char*l[20], char*r[20], char**envp){
