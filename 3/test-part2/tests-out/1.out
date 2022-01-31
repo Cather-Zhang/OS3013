@@ -1,0 +1,5 @@
+Execution trace with FIFO:
+t=0: [Job 0] arrived at [0], ran for: [3]
+End of execution with FIFO.
+Begin analyzing FIFO:
+End analyzing FIFO.

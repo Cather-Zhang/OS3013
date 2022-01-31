@@ -264,7 +264,6 @@ int main(int argc, char const *argv[]) {
                         e = execve(cmd, input, envp);
                     }
                     
-                    
                     if (e == -1){
                         printf("wshell: could not execute command: %s\n", command);
                         fclose(stdout);
