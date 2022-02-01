@@ -10,5 +10,5 @@ Begin analyzing RR:
 Job 0 -- Response time: 0  Turnaround: 1  Wait: 0
 Job 1 -- Response time: 0  Turnaround: 9  Wait: 4
 Job 2 -- Response time: 0  Turnaround: 6  Wait: 2
-Average -- Response: 0.00  Turnaround 6.67  Wait 2.00
+Average -- Response: 0.00  Turnaround 5.33  Wait 2.00
 End analyzing RR.

@@ -6,5 +6,5 @@ End of execution with RR.
 Begin analyzing RR:
 Job 0 -- Response time: 0  Turnaround: 1  Wait: 0
 Job 1 -- Response time: 0  Turnaround: 5  Wait: 0
-Average -- Response: 0.00  Turnaround 4.50  Wait 0.00
+Average -- Response: 0.00  Turnaround 3.00  Wait 0.00
 End analyzing RR.
