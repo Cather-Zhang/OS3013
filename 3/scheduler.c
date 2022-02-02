@@ -84,9 +84,10 @@ int main(int argc, char **argv) {
 
     else if (strcmp(policy, "RR") == 0) {
         policy_RR(head, slice_duration);
+        //print_job(head);
         if (analysis) {
             printf("Begin analyzing RR:\n");
-            analyze_SJF(head);
+            analyze_RR(head);
             printf("End analyzing RR.\n");
         }
         exit(EXIT_SUCCESS);
@@ -188,8 +189,10 @@ void policy_RR(job *head, int slice) {
     while (!isDone(head)) {
         job*prev = head;
         while (prev != NULL){ 
+            //only check the jobs that are not done
             if (prev->timeleft != 0) {     
                 if (time < prev->arrival) {
+                    //if all jobs that arrive before time are done, skip the loop 
                     if (!isDonePrev(head, time)) {
                         prev = prev->next;
                         continue;
@@ -199,14 +202,18 @@ void policy_RR(job *head, int slice) {
                         prev->response = 0;
                     }
                 }
+
                 if (prev->timeleft == prev->length) {
                     prev->response = time - prev->arrival;
                 }
-                if (prev->timeleft < slice) {
+
+                if (prev->timeleft <= slice) {
                     printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", time, prev->id, prev->arrival, prev->timeleft);
                     time += prev->timeleft;
                     prev->timeleft = 0;
                     prev->turnaround = time - prev->arrival;
+                    prev->wait = prev->turnaround - prev->length;
+                    //printf("wait time for job [%d] is %d\n", prev->id, prev->wait);
                     prev = prev->next;
                 }
                 else {
@@ -225,20 +232,20 @@ void policy_RR(job *head, int slice) {
 
 
 void analyze_RR(job *head) {
-    double resAvg = 0.00, turnAvg = 0.00, size = 0.00;
-    bubbleSortBack(head);
+    double resAvg = 0.00, turnAvg = 0.00, waitAvg = 0.00, size = 0.00;
     job *prev = head;
     while (prev != NULL){
-        printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", 
-        prev->id, prev->response, prev->turnaround, prev->response);
+        printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", prev->id, prev->response, prev->turnaround, prev->wait);
         resAvg += prev->response;
         turnAvg += prev->turnaround;
+        waitAvg += prev->wait;
         size++;
         prev = prev->next;
     }
     resAvg = resAvg / size;
     turnAvg = turnAvg / size;
-    printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", resAvg, turnAvg, resAvg);
+    waitAvg = waitAvg / size;
+    printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", resAvg, turnAvg, waitAvg);
     return;
 }
 
@@ -273,6 +280,7 @@ void append(int id, int arrival, int length){
     tmp->timeleft = length;
     tmp->response = 0;
     tmp->turnaround = 0;
+    tmp->wait = 0;
 
     // the new job is the last job
     tmp->next = NULL;
@@ -331,7 +339,8 @@ void read_workload_file(char* filename) {
 void print_job(job *head) {
     job *prev = head;
     while (prev != NULL){
-        printf("job [%d] arrive time: %d, execution time: %d\n", prev->id, prev->arrival, prev->length);
+        printf("job [%d] arrival: %d, length: %d, response: %d, turnaround: %d, wait: %d\n", 
+        prev->id, prev->arrival, prev->length, prev->response, prev->turnaround, prev->wait);
         prev = prev->next;
     }
 }
@@ -397,6 +406,7 @@ void swap(job*a, job*b){
     t->length = a->length;
     t->response = a->response;
     t->turnaround = a->turnaround;
+    t->wait = a->wait;
 
     a->arrival = b->arrival;
     a->timeleft = b->timeleft;
@@ -404,6 +414,8 @@ void swap(job*a, job*b){
     a->length = b->length;
     a->response = b->response;
     a->turnaround = b->turnaround;
+    a->wait = b->wait;
+
 
     b->arrival = t->arrival;
     b->timeleft = t->timeleft;
@@ -411,4 +423,6 @@ void swap(job*a, job*b){
     b->length = t->length;
     b->response = t->response;
     b->turnaround = t->turnaround;
+    b->wait = t->wait;
+
 }
