@@ -1,7 +1,14 @@
 {
     "C_Cpp.errorSquiggles": "Disabled",
     "files.associations": {
+        "agent.h": "c",
+        "actor.h": "c",
+        "linkedlist.h": "c",
+        "*.rmd": "markdown",
         "string.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "xutility": "c",
+        "xlocale": "c",
+        "xstring": "c"
     }
 }
