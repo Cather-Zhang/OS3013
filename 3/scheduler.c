@@ -11,9 +11,10 @@ typedef struct job {
     int arrival;
     int length;
     struct job * next;
-    int executed;
+    int timeleft;
     int turnaround;
     int response;
+    int wait;
 }job;
 
 /*** Globals ***/ 
@@ -32,10 +33,16 @@ void policy_FIFO(job *head);
 void analyze_FIFO(job *head);
 void policy_SJF(job *head);
 void analyze_SJF(job *head);
+void policy_RR(job *head, int slice);
+void analyze_RR(job *head);
+
+//helpers
 void print_job(job *head);
 void bubbleSort(job*head);
 void bubbleSortBack(job *head);
 void swap(job*a, job*b);
+int isDone(job *head);
+int isDonePrev(job *head, int t);
 
 
 int main(int argc, char **argv) {
@@ -48,7 +55,7 @@ int main(int argc, char **argv) {
     int analysis = atoi(argv[1]);
     char *policy = argv[2],
          *workload = argv[3];
-    //int slice_duration = atoi(argv[4]);
+    int slice_duration = atoi(argv[4]);
 
     // Note: we use a global variable to point to 
     // the start of a linked-list of jobs, i.e., the job list 
@@ -75,6 +82,16 @@ int main(int argc, char **argv) {
         exit(EXIT_SUCCESS);
     }
 
+    else if (strcmp(policy, "RR") == 0) {
+        policy_RR(head, slice_duration);
+        if (analysis) {
+            printf("Begin analyzing RR:\n");
+            analyze_SJF(head);
+            printf("End analyzing RR.\n");
+        }
+        exit(EXIT_SUCCESS);
+    }
+
     // TODO: Add other policies 
 
 	exit(EXIT_SUCCESS);
@@ -95,7 +112,7 @@ void policy_FIFO(job *head) {
         prev->response = time - prev->arrival;
         time += prev->length;
         prev->turnaround = time - prev->arrival;
-        prev->executed = 1;
+        prev->timeleft = 0;
         prev = prev->next;
     }
     printf("End of execution with FIFO.\n");
@@ -137,93 +154,11 @@ void policy_SJF(job *head) {
         printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", time, prev->id, prev->arrival, prev->length);
         time += prev->length;
         prev->turnaround = time - prev->arrival;
-        prev->executed = 1;
+        prev->timeleft = 0;
         prev = prev->next;
     }
     printf("End of execution with SJF.\n");
     return;
-}
-
-void bubbleSort(job *head)
-{
-    int swapped;
-    job *ptr1;
-    job *lptr = NULL;
-  
-    /* Checking for empty list */
-    if (head == NULL)
-        return;
-  
-    do
-    {
-        swapped = 0;
-        ptr1 = head;
-  
-        while (ptr1->next != lptr)
-        {
-            if ( (ptr1->length + ptr1->arrival) > (ptr1->next->length +ptr1->next->arrival))
-            { 
-                swap(ptr1, ptr1->next);
-                swapped = 1;
-            }
-            ptr1 = ptr1->next;
-        }
-        lptr = ptr1;
-    }
-    while (swapped);
-}
-
-void bubbleSortBack(job *head)
-{
-    int swapped;
-    job *ptr1;
-    job *lptr = NULL;
-  
-    /* Checking for empty list */
-    if (head == NULL)
-        return;
-  
-    do
-    {
-        swapped = 0;
-        ptr1 = head;
-  
-        while (ptr1->next != lptr)
-        {
-            if ( ptr1->id > ptr1->next->id)
-            { 
-                swap(ptr1, ptr1->next);
-                swapped = 1;
-            }
-            ptr1 = ptr1->next;
-        }
-        lptr = ptr1;
-    }
-    while (swapped);
-}
-
-void swap(job*a, job*b){
-    job *t = (job*)malloc(sizeof(job));
-    t->arrival = a->arrival;
-    t->executed = a->executed;
-    t->id = a->id;
-    t->length = a->length;
-    t->response = a->response;
-    t->turnaround = a->turnaround;
-
-    a->arrival = b->arrival;
-    a->executed = b->executed;
-    a->id = b->id;
-    a->length = b->length;
-    a->response = b->response;
-    a->turnaround = b->turnaround;
-
-    b->arrival = t->arrival;
-    b->executed = t->executed;
-    b->id = t->id;
-    b->length = t->length;
-    b->response = t->response;
-    b->turnaround = t->turnaround;
 }
 
 
@@ -246,7 +181,84 @@ void analyze_SJF(job *head) {
 }
 
 /////////// RR ////////////
+void policy_RR(job *head, int slice) {
+    int time = 0;
+    printf("Execution trace with RR:\n");
 
+    while (!isDone(head)) {
+        job*prev = head;
+        while (prev != NULL){ 
+            if (prev->timeleft != 0) {     
+                if (time < prev->arrival) {
+                    if (!isDonePrev(head, time)) {
+                        prev = prev->next;
+                        continue;
+                    }
+                    else {
+                        time = prev->arrival;
+                        prev->response = 0;
+                    }
+                }
+                if (prev->timeleft == prev->length) {
+                    prev->response = time - prev->arrival;
+                }
+                if (prev->timeleft < slice) {
+                    printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", time, prev->id, prev->arrival, prev->timeleft);
+                    time += prev->timeleft;
+                    prev->timeleft = 0;
+                    prev->turnaround = time - prev->arrival;
+                    prev = prev->next;
+                }
+                else {
+                    printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", time, prev->id, prev->arrival, slice);
+                    time += slice;
+                    prev->timeleft -= slice;
+                    prev = prev->next;
+                }
+            }
+            else prev = prev->next;
+        }
+    }
+    printf("End of execution with RR.\n");
+    return;
+}
+
+
+void analyze_RR(job *head) {
+    double resAvg = 0.00, turnAvg = 0.00, size = 0.00;
+    bubbleSortBack(head);
+    job *prev = head;
+    while (prev != NULL){
+        printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", 
+        prev->id, prev->response, prev->turnaround, prev->response);
+        resAvg += prev->response;
+        turnAvg += prev->turnaround;
+        size++;
+        prev = prev->next;
+    }
+    resAvg = resAvg / size;
+    turnAvg = turnAvg / size;
+    printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", resAvg, turnAvg, resAvg);
+    return;
+}
+
+int isDone(job *head) {
+    job *prev = head;
+    while (prev != NULL){
+        if (prev->timeleft != 0) return 0;
+        prev = prev->next;
+    }
+    return 1;
+}
+
+int isDonePrev(job *head, int t) {
+    job *prev = head;
+    while (prev != NULL){
+        if (prev->arrival < t && prev->timeleft != 0) return 0;
+        prev = prev->next;
+    }
+    return 1;
+}
 
 
 /*Function to append a new job to the list*/
@@ -258,7 +270,7 @@ void append(int id, int arrival, int length){
     tmp->id = id;
     tmp->length = length;
     tmp->arrival = arrival;
-    tmp->executed = 0;
+    tmp->timeleft = length;
     tmp->response = 0;
     tmp->turnaround = 0;
 
@@ -282,7 +294,6 @@ void append(int id, int arrival, int length){
     prev->next = tmp;
     return;
 }
-
 
 /*Function to read in the workload file and create job list*/
 void read_workload_file(char* filename) {
@@ -325,3 +336,79 @@ void print_job(job *head) {
     }
 }
 
+void bubbleSort(job *head){
+    int swapped;
+    job *ptr1;
+    job *lptr = NULL;
+  
+    /* Checking for empty list */
+    if (head == NULL)
+        return;
+    do{
+        swapped = 0;
+        ptr1 = head;
+  
+        while (ptr1->next != lptr)
+        {
+            if ( (ptr1->length + ptr1->arrival) > (ptr1->next->length +ptr1->next->arrival))
+            { 
+                swap(ptr1, ptr1->next);
+                swapped = 1;
+            }
+            ptr1 = ptr1->next;
+        }
+        lptr = ptr1;
+    }
+    while (swapped);
+}
+
+void bubbleSortBack(job *head){
+    int swapped;
+    job *ptr1;
+    job *lptr = NULL;
+  
+    /* Checking for empty list */
+    if (head == NULL)
+        return;
+  
+    do{
+        swapped = 0;
+        ptr1 = head;
+  
+        while (ptr1->next != lptr)
+        {
+            if ( ptr1->id > ptr1->next->id)
+            { 
+                swap(ptr1, ptr1->next);
+                swapped = 1;
+            }
+            ptr1 = ptr1->next;
+        }
+        lptr = ptr1;
+    }
+    while (swapped);
+}
+
+void swap(job*a, job*b){
+    job *t = (job*)malloc(sizeof(job));
+    t->arrival = a->arrival;
+    t->timeleft = a->timeleft;
+    t->id = a->id;
+    t->length = a->length;
+    t->response = a->response;
+    t->turnaround = a->turnaround;
+
+    a->arrival = b->arrival;
+    a->timeleft = b->timeleft;
+    a->id = b->id;
+    a->length = b->length;
+    a->response = b->response;
+    a->turnaround = b->turnaround;
+
+    b->arrival = t->arrival;
+    b->timeleft = t->timeleft;
+    b->id = t->id;
+    b->length = t->length;
+    b->response = t->response;
+    b->turnaround = t->turnaround;
+}
