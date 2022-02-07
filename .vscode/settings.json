@@ -9,6 +9,7 @@
         "types.h": "c",
         "xutility": "c",
         "xlocale": "c",
-        "xstring": "c"
+        "xstring": "c",
+        "unistd.h": "c"
     }
 }
