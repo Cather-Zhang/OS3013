@@ -8,17 +8,6 @@
 node_t *head;
 size_t allosize = 0;
 int statusno = 0;
-//void print_header(node_t *header);
-
-/*
-int main(int argc, char **argv) {
-    init(4096);
-    walloc(100);
-    destroy();
-
-    return 0;   
-}*/
-
 
 int init(size_t size) {
     printf("Initializing arena:\n");
@@ -70,29 +59,34 @@ void* walloc(size_t size) {
     if (allosize == 0)  {
         printf("Error: Unitialized. Setting status code\n");
         statusno = ERR_UNINITIALIZED;
-        return NULL;
+        return buff;
     }
     printf("...looking for free chunk of >= %ld bytes\n", size);
 
     //checking there is enough free space in the chunk
     node_t *prev = head;
-    size_t totalFree = 0;
+    unsigned short hasChunk = 0;
     while (prev != NULL) {
-        if (prev->is_free) 
-            totalFree += prev->size;
+        if (prev->is_free && prev->size >= size) {
+            hasChunk = 1;
+            break;
+        }
         prev = prev->fwd;
     }
-    if (totalFree < size) {
+    if (!hasChunk) {
         printf("...no such free chunk exists\n...setting error code\n");
         statusno = ERR_OUT_OF_MEMORY;
-        return NULL;
+        buff = NULL;
+        return buff;
     }
-
+    else{
     //start allocating
     prev = head;
     node_t *newHead;
+    size_t available = 0;
     while (prev != NULL) {
-        if (prev ->size >= size) {
+        if (prev->size >= size && prev->is_free) {
+            available = prev->size;
             printf("...found free chunk of %ld bytes with header at %p\n", prev->size, prev);
             printf("...free chunk->fwd currently points to %p\n", prev->fwd);
             printf("...free chunk->bwd currently points to %p\n", prev->bwd);
@@ -102,18 +96,24 @@ void* walloc(size_t size) {
                 printf("...updating chunk header at %p\n", prev);
                 prev->is_free = 0;
                 newHead = prev;
+                break;
+            }
+            else if (prev->size - size <= 32) {
+                printf("...splitting not possible\n");
+                prev->is_free = 0;
+                newHead = prev;
+                break;
             }
             else {
                 printf("...splitting free chunk\n");
                 printf("...updating chunk header at %p\n", prev);
-                newHead = prev;
-                newHead -> size = size;
-                newHead -> bwd = prev->bwd;
-                prev = (node_t *)((char*)newHead + sizeof(*head) + size);
-                prev->size -= size - sizeof(*head);
-                prev->bwd = newHead;
-                newHead -> fwd = prev;
-                newHead -> is_free = 0;
+                prev -> size = size;
+                newHead = (node_t *)((char*)prev + sizeof(*head) + size);
+                newHead->size = available - size - sizeof(node_t);
+                newHead->bwd = prev;
+                newHead->is_free = 1;
+                prev -> fwd = newHead;
+                prev -> is_free = 0;        
                 break;
             }
         }
@@ -121,22 +121,63 @@ void* walloc(size_t size) {
     }
     //print_header(head);
     printf("...being careful with my pointer arthimetic and void pointer casting\n");
-    printf("...allocation starts at %p\n", (void*)((char*)newHead+sizeof(*head)));
-    buff = (void*)newHead;
+    printf("...allocation starts at %p\n", (void*)((char*)prev+sizeof(node_t)));
+    buff = (void*)((char*)prev+sizeof(node_t));
     return buff;
+    }
 }
 
 void wfree(void *ptr) {
-
+    printf("Freeing allocated memory:\n");
+    printf("...supplied pointer %p\n:", ptr);
+    printf("...being careful with my pointer arthimetic and void pointer casting\n");
+    node_t *header = ptr - sizeof(node_t);
+    printf("...accessing chunk header at %p\n", header);
+    printf("...chunk of size %ld\n", header->size);
+    header->is_free = 1;
+    printf("...checking if coalescing is needed\n");
+    size_t totalFree = 0;
+    
+    if (header->fwd != NULL &&  header->bwd != NULL && 
+    header->fwd->is_free && header->bwd->is_free) {
+        printf("...col. case 1: previous, current, and next chunks all free.\n");
+        totalFree = header->size + header->bwd->size + header->fwd->size + 2*sizeof(node_t);
+        header->bwd->size = totalFree;
+        if (header->fwd->fwd != NULL) {
+            header->fwd->fwd->bwd = header->bwd;
+            header->bwd->fwd = header->fwd->fwd;
+        }
+        else {
+            header->bwd->fwd = NULL;
+        }
+        return;    
+    }
+    else if (header->bwd != NULL && header->bwd->is_free) {
+            printf("...col. case 2: previous and current chunks free.\n");
+            totalFree = header->size + header->bwd->size + sizeof(node_t);
+            header->bwd->size = totalFree;
+            if (header->fwd != NULL){
+                header->bwd->fwd = header->fwd;
+                header->fwd->bwd = header->bwd;
+            }
+            else {
+                header->bwd->fwd = NULL;
+            }
+            return;
+        }
+    else if (header->fwd != NULL && header->fwd->is_free) {
+        printf("...col. case 3: current and next chunks free.\n");
+        totalFree = header->size + header->fwd->size + sizeof(node_t);
+        header->size = totalFree;
+        if(header->fwd->fwd != NULL) {
+            header->fwd = header->fwd->fwd;
+            header->fwd->fwd->bwd = header;
+        }
+        else {
+            header->fwd = NULL;
+        }
+        return;
+    }
+    printf("...coalescing not needed.\n");
 }
 
-/*
-void print_header(node_t *header){
-  //Note: These printf statements may produce a segmentation fault if the buff
-  //pointer is incorrect, e.g., if buff points to the start of the arena.
-  printf("Header->size: %lu\n", header->size);
-  printf("Header->fwd: %p\n", header->fwd);
-  printf("Header->bwd: %p\n", header->bwd);
-  printf("Header->is_free: %d\n", header->is_free);
-}
-*/
