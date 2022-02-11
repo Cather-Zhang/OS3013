@@ -38,7 +38,6 @@ int init(size_t size) {
     head->fwd = NULL;
     head->bwd = NULL;
     printf("...header size is %ld bytes\n", sizeof(*head));
-    //print_header(head);
     return ((int)allosize);
 }
 
@@ -119,7 +118,6 @@ void* walloc(size_t size) {
         }
         prev = prev->fwd;
     }
-    //print_header(head);
     printf("...being careful with my pointer arthimetic and void pointer casting\n");
     printf("...allocation starts at %p\n", (void*)((char*)prev+sizeof(node_t)));
     buff = (void*)((char*)prev+sizeof(node_t));
@@ -178,6 +176,6 @@ void wfree(void *ptr) {
         }
         return;
     }
-    printf("...coalescing not needed.\n");
+
 }
 
