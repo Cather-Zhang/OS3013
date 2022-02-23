@@ -1,6 +1,5 @@
 #ifndef __goatmalloc_h__
 #define __goatmalloc_h__
-#include <stddef.h>
 
 #define ERR_OUT_OF_MEMORY  (-1)
 #define ERR_BAD_ARGUMENTS  (-2)

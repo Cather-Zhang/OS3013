@@ -1,3 +1,5 @@
+#include <stddef.h>
+#include ".goatmalloc_h"
 #include "goatmalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
