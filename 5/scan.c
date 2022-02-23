@@ -5,35 +5,52 @@
 #include <semaphore.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define MAX_LINE_SIZE 256
 
 void read_input_vector(const char* filename, int n, int* array);
 
-int *in, *out, **end;
-int chunkSize;
-pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+int *in, **end;
+int chunkSize, threadNum;
+int counter = 0;
+pthread_mutex_t mutex;
+pthread_cond_t cond;
 
 void* add(void* ptr) {
-    pthread_mutex_lock(&mut);
     int index = *(int*)ptr;
-    out[index] = in[index];
-    for (int i = 1; i < chunkSize; i++) {
-        out[index + i] = out[index + i - 1]  + in[index + i];
+    for (int i = 0; i < log2((double)chunkSize); i++) {
+        int off = (int) pow(2.0, (double) i);
+        for (int j = 0; j < chunkSize; j++) {
+            if (index + j - off >= 0) {
+                in[index + j] = in[index + j] + in[index + j - off];
+            }
+        }
+        /* Barrier*/
+        pthread_mutex_lock(&mutex);
+        counter++;
+        if(counter == threadNum) {
+            counter = 0;
+            pthread_cond_broadcast(&cond);
+        }
+        else {
+            while (pthread_cond_wait(&cond, &mutex) != 0);
+        }
+        pthread_mutex_unlock(&mutex);
     }
-    *(int*) ptr = out[index + chunkSize - 1];
-    pthread_mutex_unlock(&mut);
+    
+    
     return (void*)ptr;
 }
 
 int main(int argc, char **argv) {
     const char *filename = argv[1];
     int size = atoi(argv[2]);
-    int threadNum = atoi(argv[3]);
+    threadNum = atoi(argv[3]);
     chunkSize = size / threadNum;
 
     in = (int*) malloc(sizeof(int) * size);
-    out = (int*) malloc(sizeof(int) * size);
+    //out = (int*) malloc(sizeof(int) * size);
     read_input_vector(filename, size, in);
 
     pthread_t *thread = (pthread_t*) malloc(sizeof(pthread_t) * threadNum);
@@ -47,17 +64,10 @@ int main(int argc, char **argv) {
     for (int i = 0; i < threadNum; i++) {
         void *r;
         pthread_join(thread[i], &r);
-        if (i != 0) {
-            for (int j = 0; j < chunkSize; j++) {
-                int add = 0;
-                for (int k = 0; k < i; k++) 
-                    add += *(int*)end[k];
-                out[i * chunkSize + j] += add;
-            }
-        }
     }
+
     for (int i = 0; i < size; i ++) {
-        printf("%d\n", out[i]);
+        printf("%d\n", in[i]);
     }
 }
 
