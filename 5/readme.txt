@@ -13,8 +13,12 @@ Teammates worked on this project are: czhang10 & jdmeza.
 
     Therefore, a barrier is added after each thread has finished each cross addition, with a total of log2(n) (n = size of array) barriers. 
     This ensures correctness of our implementation because we can not start the next level cross addition unless we finish the previous one.
-    Our barrier is constructed with a combination of lock and condition variable, with a global counter. 
+    Our barrier is constructed as a 2 phased semaphore barrier, with a global counter to keep track of the number of threads that have finished current cross addition. 
     
+    This implementation was referenced from "The Little Book of Semaphores" by Allen B. Downey, chapter 3.7.5 "Reusable barrier solution".
+    We need to 3 semaphores - 1 for mutual exclusion lock and 2 for barriers because it is a two phased barrier,  we force all threads to wait twice to ensure that all threads have finished execution.
+    Barrier1 is initialized to 0 and barrier2 is initialized to 1. Mutex is initialized to 1.
+
     First, we need to lock the section up with a mutual lock, so that only one thread is allowed to enter the critical section described below.
     The critical section: first we increment the global counter, which means that "this" thread already finished the current cross addition. 
     
