@@ -51,45 +51,33 @@ void* add(void* ptr) {
 
         /*phased semaphore barrier*/
         // mutex 1, barrier1 0, barrier2 1
-        sem_wait(&mutex); //0
-        printf("1st phase thread %d locked\n", *(int*)ptr/chunkSize);
+
+        sem_wait(&mutex); 
         counter++;
-        printf("thread %d, counter increments, value %d\n",*(int*)ptr/chunkSize, counter);
         if (counter == threadNum) {
-            sem_wait(&barrier2); //0
-            printf("if: wait barrier 2\n");
-            sem_post(&barrier1); //1
-            printf("if: post barrier 1\n");
+            sem_wait(&barrier2); 
+            sem_post(&barrier1); 
+
             for (int k = 0; k < size; k++) {
                 in[k] = out[k];
             }
         }
-        sem_post(&mutex); //1
-        printf("1st phase thread %d unlocked\n", *(int*)ptr/chunkSize);
+        sem_post(&mutex); 
 
-        sem_wait(&barrier1); //-1
-        printf("wait barrier 1\n");
+        sem_wait(&barrier1); 
         sem_post(&barrier1); 
-        printf("post barrier 1\n");
 
-        sem_wait(&mutex); //0
-        printf("2nd phase thread %d locked\n", *(int*)ptr/chunkSize);
+        sem_wait(&mutex); 
         counter--;
-        printf("thread %d, counter decrements, value %d\n",*(int*)ptr/chunkSize, (int)counter);
-        
+      
         if (counter == 0) {
-            sem_wait(&barrier1); //-1 
-             printf("if: wait barrier 1\n");
-            sem_post(&barrier2); //2
-             printf("if: post barrier 2\n");
+            sem_wait(&barrier1); 
+            sem_post(&barrier2); 
         }
-        sem_post(&mutex); //1
-        printf("2nd phase thread %d unlocked\n", *(int*)ptr/chunkSize);
+        sem_post(&mutex); 
 
         sem_wait(&barrier2); 
-        printf("wait barrier 2\n");
         sem_post(&barrier2);
-        printf("post barrier 2\n");
         /*end of barrier*/
         
     }
