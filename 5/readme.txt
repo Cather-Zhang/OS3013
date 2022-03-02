@@ -5,10 +5,11 @@ Teammates worked on this project are: czhang10 & jdmeza.
     Our scan function implements Hillis Steele Scan executed with multiple threads.
     First, in main thread, we read the arguments and save "total number of elements" and "number of threads" as global variables. Each thread will execute Hillis Steele algorithm on a chunk of the array, which is determined by the total size and number of trheads.
     We allocate two arrays for read (in) and write (out) for the later Hillis Steele Scan algorithm, and the input array is read and copied to the "in" array.
-    We initialize a lock and a condition variable (there is only one each).
+
     Then, we have a loop, in which we create each thread. The argument pointer we pass in is different for each thread, which stores the value of the starting index of the chunk in the array the thread will executing on. 
 
-    Inside our thread function "add", we have implemented the Hillis Steele Scan algorithm for a chunk. For each cross addition, the process is parallel because we read "in" and write the addition result to "out". This means that each thread is completely independent and working on different sections of the array. Thus, no lock is needed for each cross addition.
+    Inside our thread function "add", we have implemented the Hillis Steele Scan algorithm for a chunk. For each cross addition, the process is parallel because we read "in" and write the addition result to "out". This means that each thread is completely independent and working on different sections of the array. 
+    Thus, no lock is needed for each cross addition and this maximize our concurrency. 
     However, we need to wait for a cross addition to finish before we can start the next cross addition (e.g. we need to finish all threads' calculation on 2-cross before we can start 4-cross).
 
     Therefore, a barrier is added after each thread has finished each cross addition, with a total of log2(n) (n = size of array) barriers. 
@@ -20,13 +21,13 @@ Teammates worked on this project are: czhang10 & jdmeza.
     Barrier1 is initialized to 0 and barrier2 is initialized to 1. Mutex is initialized to 1.
 
     In the first phase of our barrier: 
-    First, we need to decrement the mutex semaphore to "sleep" the other threads, preventing them entering the critical section.
+    First, we need to decrement the mutex semaphore to "sleep" the other threads, preventing them entering the critical section, which is to increment the global counter (this prevents race condition and deadlocks).
     In the critical section,  we increment the global counter, which means that "this" thread already finished the current cross addition. 
     
     Then we need to check if the global counter equals to the total number of threads. 
     If it does, that means all threads have already completed current cross addition and we can then move on to the next level of cross addition.
         To get ready for the next level cross addition, first, we need to copy the elements from "out" to "in", because the write results of this level's cross addition will be the array we need to read from.
-        Then we decrement barrier2 for phase 2 and increment barrier1 so we can exit phase 1 barrier. Then we unlock the section.
+        Then we decrement barrier2 for phase 2 and increment barrier1 so we can exit phase 1 barrier and allow the thread to access phase 2 barrier. Then we unlock the section.
     If the global counter does not equal to the total number of threads, that means there are still threads have not completed the current cross addition yet. 
         So we need to keep waiting by drecrementing barrier1, allowing other threads to finish execution.
 
