@@ -4,7 +4,8 @@ Teammates worked on this project are: czhang10 & jdmeza.
 
     Our scan function implements Hillis Steele Scan executed with multiple threads.
     First, in main thread, we read the arguments and save "total number of elements" and "number of threads" as global variables. Each thread will execute Hillis Steele algorithm on a chunk of the array, which is determined by the total size and number of trheads.
-    We allocate two arrays for read (in) and write (out) for the later Hillis Steele Scan algorithm, and the input array is read and copied to the "in" array.
+    We allocate an array of three arraies for the later Hillis Steele Scan algorithm, and the initial input array arr[0] is read.
+    The design of doing out cross addition is that we use three arrays, and we index loop it to read and write. (e.g. arr[1]read, arr[2]write; then in the next cross addition, arr[2]read and arr[0]write)
 
     Then, we have a loop, in which we create each thread. The argument pointer we pass in is different for each thread, which stores the value of the starting index of the chunk in the array the thread will executing on. 
 
@@ -26,15 +27,14 @@ Teammates worked on this project are: czhang10 & jdmeza.
     
     Then we need to check if the global counter equals to the total number of threads. 
     If it does, that means all threads have already completed current cross addition and we can then move on to the next level of cross addition.
-        To get ready for the next level cross addition, first, we need to copy the elements from "out" to "in", because the write results of this level's cross addition will be the array we need to read from.
-        Then we decrement barrier2 for phase 2 and increment barrier1 so we can exit phase 1 barrier and allow the thread to access phase 2 barrier. Then we unlock the section.
+        To get ready for the next level cross addition, we decrement barrier2 for phase 2 and increment barrier1 so we can exit phase 1 barrier and allow the thread to access phase 2 barrier. Then we unlock the section.
     If the global counter does not equal to the total number of threads, that means there are still threads have not completed the current cross addition yet. 
         So we need to keep waiting by drecrementing barrier1, allowing other threads to finish execution.
 
     Then we can proceed to the second phase barrier, which is basically the same procedure as the first phase. The only difference is that we decremen the counter each time until it reaches 0 (to get ready for our next barrier for the next level cross addition).
     And if counter equals to 0, we decrement barrier1 and increment barrier2 to release all threads from barrier2, from the whole barrier.
 
-    After we are done with all execution with the threads, we return to the main thread and print out our out[] array as final answer.
+    After we are done with all execution with the threads, we return to the main thread and print out our output array as final answer.
 
 
 ///Performance///
@@ -47,3 +47,7 @@ Teammates worked on this project are: czhang10 & jdmeza.
     While deveoping our program, we first used a lock and condition variable as our barrier, but it gives us ~1.9X performance compared to the serial sum. Then we changed to semaphore barrier because semaphore is faster than mutex.
     Our two-phased semaphore barrier gives us ~1.63X performance compared to serial.
     And this is because multiple threads can acquire semaphore at a time, while only one thread can acquire mutex at a time. Semaphore is also only changing the value binarily, making it faster. 
+
+    The previous performance is based on when we only had two arraies, and one for read, the other one for write. We copied the value of output to input inside the barrier, so we can get ready for the next cross addition.
+    Then I thought of the "history" command we did in project 2, which triggered me that we could have an array of arraies. And we can have a spare one, and index loop through it to avoid "copying" array over, which can increase our performance.
+    And indeed, it improved my performance from ~1.63x to ~1.15x because we no longer copying an entire array with size n log2n times. 

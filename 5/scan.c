@@ -10,8 +10,8 @@
 
 void read_input_vector(const char* filename, int n, int* array);
 
-int *in, *out, **ptr;
-int chunkSize, threadNum, size, counter = 0;
+int **arr, **ptr;
+int chunkSize, threadNum, size, counter = 0, arrIndex = 0;
 //pthread_mutex_t mutex;
 //pthread_cond_t cond;
 
@@ -24,10 +24,10 @@ void* add(void* ptr) {
     for (int i = 1; i <= size/2; i = i * 2) {
         for (int j = 0; j < chunkSize; j++) {
             if (index + j - i >= 0) {
-                out[index + j] = in[index + j] + in[index + j - i];
+                arr[((arrIndex+1)%3)][index + j] = arr[arrIndex][index + j] + arr[arrIndex][index + j - i];
             }
             else {
-                out[index + j] = in[index + j];
+                arr[((arrIndex+1)%3)][index + j] = arr[arrIndex][index + j];
             }
         }
         
@@ -53,13 +53,13 @@ void* add(void* ptr) {
 
         sem_wait(&mutex); 
         counter++;
+        
         if (counter == threadNum) {
             sem_wait(&barrier2); 
             sem_post(&barrier1); 
+        arrIndex++;
+        if (arrIndex == 3) arrIndex = 0;
 
-            for (int k = 0; k < size; k++) {
-                in[k] = out[k];
-            }
         }
         sem_post(&mutex); 
 
@@ -89,11 +89,14 @@ int main(int argc, char **argv) {
     threadNum = atoi(argv[3]);
     chunkSize = size / threadNum;
 
-    in = (int*) malloc(sizeof(int) * size);
-    out = (int*) malloc(sizeof(int) * size);
-    read_input_vector(filename, size, in);
+    arr = (int**) malloc(sizeof(int*) * 3);
+    for (int i = 0; i < 3; i++) {
+        arr[i] = (int*) malloc(sizeof(int) * size);
+    }
 
+    read_input_vector(filename, size, arr[0]);
     pthread_t *thread = (pthread_t*) malloc(sizeof(pthread_t) * threadNum);
+
     ptr = (int**) malloc(sizeof(int*) * threadNum);
 
     //pthread_mutex_init(&mutex, NULL);
@@ -121,7 +124,7 @@ int main(int argc, char **argv) {
     sem_destroy(&barrier2);
 
     for (int i = 0; i < size; i ++) {
-        printf("%d\n", out[i]);
+        printf("%d\n", arr[arrIndex][i]);
     }
 }
 
